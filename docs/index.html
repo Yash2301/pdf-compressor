@@ -94,10 +94,10 @@
     <h1>Shrink scanned PDFs.<br>Keep them readable.</h1>
     <p class="lead">A free, open-source desktop app for Windows and macOS. Compresses scanned documents by up to 99% and keeps their OCR text. Runs offline, so your files never leave your computer.</p>
     <div class="buttons">
-      <a class="btn primary" id="dl-main" href="https://github.com/Yash2301/pdf-compressor/releases/latest">Download</a>
-      <a class="btn" id="dl-alt" href="https://github.com/Yash2301/pdf-compressor/releases/latest">All downloads</a>
+      <a class="btn primary" id="dl-win" href="https://github.com/Yash2301/pdf-compressor/releases/latest/download/PDFCompressor-windows.exe">Download for Windows (.exe)</a>
+      <a class="btn" id="dl-mac" href="https://github.com/Yash2301/pdf-compressor/releases/latest/download/PDFCompressor-mac.zip">Download for macOS (.zip)</a>
     </div>
-    <p class="small">Free forever · <a href="https://github.com/Yash2301/pdf-compressor/blob/main/LICENSE">AGPL-3.0</a> · <a href="https://github.com/Yash2301/pdf-compressor">Source code</a></p>
+    <p class="small"><a href="https://github.com/Yash2301/pdf-compressor/releases/latest">All releases</a> · Free forever · <a href="https://github.com/Yash2301/pdf-compressor/blob/main/LICENSE">AGPL-3.0</a> · <a href="https://github.com/Yash2301/pdf-compressor">Source code</a></p>
 
     <div class="stat" aria-label="Example result">
       <div class="stat-row"><span>Original scan (3 pages, 300 dpi)</span><b>74.7 MB</b></div>
@@ -169,16 +169,14 @@
   </footer>
 </div>
 <script>
-  // Point the main button at the right file for the visitor's OS.
+  // Both downloads always show; on a Mac, put the macOS one first and highlight it.
   (function () {
-    var base = "https://github.com/Yash2301/pdf-compressor/releases/latest/download/";
-    var ua = navigator.userAgent, main = document.getElementById("dl-main");
-    if (/Windows/i.test(ua)) {
-      main.href = base + "PDFCompressor-windows.exe";
-      main.textContent = "Download for Windows";
-    } else if (/Macintosh|Mac OS X/i.test(ua) && !/iPhone|iPad/i.test(ua)) {
-      main.href = base + "PDFCompressor-mac.zip";
-      main.textContent = "Download for macOS";
+    var ua = navigator.userAgent;
+    if (/Macintosh|Mac OS X/i.test(ua) && !/iPhone|iPad/i.test(ua)) {
+      var win = document.getElementById("dl-win"), mac = document.getElementById("dl-mac");
+      win.classList.remove("primary");
+      mac.classList.add("primary");
+      mac.parentNode.insertBefore(mac, win);
     }
   })();
 </script>
