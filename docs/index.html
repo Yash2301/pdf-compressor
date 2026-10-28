@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDF Compressor — shrink scanned PDFs, free & offline</title>
+<meta name="description" content="Free, open-source desktop app for Windows and macOS that shrinks scanned PDFs by up to 99% while keeping OCR text. Works offline.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='6' y='3' width='20' height='26' rx='3' fill='%232f6fed'/><path d='M11 13l5 5 5-5M16 8v10M11 23h10' stroke='white' stroke-width='2.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<style>
+  :root {
+    --bg: #fbfbfa; --surface: #ffffff; --text: #1b1d21; --muted: #5d636e;
+    --border: #e4e5e8; --accent: #2f6fed; --accent-text: #ffffff; --accent-soft: #eaf1ff;
+    --good: #1f8a4c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121417; --surface: #1a1d22; --text: #eceef1; --muted: #a0a6b1;
+      --border: #2b3038; --accent: #5b8fff; --accent-text: #0d1117; --accent-soft: #1b2639;
+      --good: #4cc47e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+  header { padding: 20px 0; display: flex; justify-content: space-between; align-items: center; }
+  .logo { font-weight: 700; display: flex; gap: 10px; align-items: center; color: var(--text); text-decoration: none; }
+  .logo svg { width: 28px; height: 28px; }
+  nav a { color: var(--muted); text-decoration: none; margin-left: 20px; font-size: 15px; }
+  nav a:hover { color: var(--text); }
+
+  .hero { padding: 56px 0 40px; text-align: center; }
+  h1 { font-size: clamp(32px, 6vw, 52px); line-height: 1.1; margin: 0 0 16px; letter-spacing: -0.02em; }
+  .lead { font-size: 19px; color: var(--muted); max-width: 620px; margin: 0 auto 32px; }
+  .buttons { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 10px;
+    font-weight: 600; text-decoration: none; border: 1px solid var(--border); color: var(--text);
+    background: var(--surface);
+  }
+  .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .btn:hover { filter: brightness(1.06); }
+  .small { font-size: 14px; color: var(--muted); margin-top: 14px; }
+  .small a { color: var(--muted); }
+
+  .stat {
+    margin: 48px auto 0; max-width: 560px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px 24px;
+  }
+  .stat-row { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; color: var(--muted); }
+  .stat-row b { color: var(--text); font-size: 18px; }
+  .bar { height: 10px; border-radius: 5px; background: var(--border); margin: 8px 0 16px; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--accent); border-radius: 5px; }
+  .saved { color: var(--good); font-weight: 700; }
+
+  section { padding: 48px 0; }
+  h2 { font-size: 28px; margin: 0 0 24px; letter-spacing: -0.01em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-size: 15px; }
+  th, td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; }
+
+  ol { padding-left: 20px; } ol li { margin-bottom: 8px; }
+  code { background: var(--accent-soft); padding: 2px 6px; border-radius: 5px; font-size: 14px; }
+  footer { padding: 32px 0 48px; color: var(--muted); font-size: 14px; border-top: 1px solid var(--border); }
+  footer a { color: var(--muted); }
+  @media (max-width: 520px) { nav a:not(:last-child) { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="logo" href="./">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="3" width="20" height="26" rx="3" fill="var(--accent)"/><path d="M11 13l5 5 5-5M16 8v10M11 23h10" stroke="white" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      PDF Compressor
+    </a>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/Yash2301/pdf-compressor">GitHub</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <h1>Shrink scanned PDFs.<br>Keep them readable.</h1>
+    <p class="lead">A free, open-source desktop app for Windows and macOS. Compresses scanned documents by up to 99% and keeps their OCR text. Runs offline, so your files never leave your computer.</p>
+    <div class="buttons">
+      <a class="btn primary" id="dl-main" href="https://github.com/Yash2301/pdf-compressor/releases/latest">Download</a>
+      <a class="btn" id="dl-alt" href="https://github.com/Yash2301/pdf-compressor/releases/latest">All downloads</a>
+    </div>
+    <p class="small">Free forever · <a href="https://github.com/Yash2301/pdf-compressor/blob/main/LICENSE">AGPL-3.0</a> · <a href="https://github.com/Yash2301/pdf-compressor">Source code</a></p>
+
+    <div class="stat" aria-label="Example result">
+      <div class="stat-row"><span>Original scan (3 pages, 300 dpi)</span><b>74.7 MB</b></div>
+      <div class="bar"><span style="width:100%"></span></div>
+      <div class="stat-row"><span>After compression (Medium preset)</span><b>169 KB</b></div>
+      <div class="bar"><span style="width:1%"></span></div>
+      <div class="stat-row"><span></span><span class="saved">99.8% smaller</span></div>
+    </div>
+  </div>
+
+  <section id="features">
+    <h2>Features</h2>
+    <div class="grid">
+      <div class="card"><h3>Keeps OCR text</h3><p>Smart mode only recompresses the page images. Searchable text, links and bookmarks stay intact.</p></div>
+      <div class="card"><h3>Max mode</h3><p>Turns each page into one optimized image for the smallest possible file.</p></div>
+      <div class="card"><h3>Batch processing</h3><p>Add many PDFs or a whole folder and compress them all in one go.</p></div>
+      <div class="card"><h3>Grayscale option</h3><p>Convert colour scans to grayscale for an extra size cut on text documents.</p></div>
+      <div class="card"><h3>Never bigger</h3><p>If a file can't be made smaller, the original is kept as-is.</p></div>
+      <div class="card"><h3>Private & offline</h3><p>No uploads, no accounts, no tracking. Everything runs on your computer.</p></div>
+    </div>
+  </section>
+
+  <section id="presets">
+    <h2>Presets</h2>
+    <div class="table-wrap">
+    <table>
+      <thead><tr><th>Preset</th><th>Image DPI</th><th>JPEG quality</th><th class="num">Example result</th></tr></thead>
+      <tbody>
+        <tr><td>Low (best quality)</td><td>200</td><td>80</td><td class="num">696 KB</td></tr>
+        <tr><td>Medium (recommended)</td><td>150</td><td>65</td><td class="num">169 KB</td></tr>
+        <tr><td>High (smallest file)</td><td>110</td><td>50</td><td class="num">73 KB</td></tr>
+        <tr><td>Extreme</td><td>80</td><td>40</td><td class="num">37 KB</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="small">Results from a 74.7 MB, 3-page colour scan in Smart mode.</p>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Windows</h3>
+        <ol>
+          <li>Download <a href="https://github.com/Yash2301/pdf-compressor/releases/latest/download/PDFCompressor-windows.exe">PDFCompressor-windows.exe</a>.</li>
+          <li>Double-click to run. No install needed.</li>
+          <li>If SmartScreen warns you, click <b>More info</b> → <b>Run anyway</b>.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>macOS (Apple Silicon)</h3>
+        <ol>
+          <li>Download <a href="https://github.com/Yash2301/pdf-compressor/releases/latest/download/PDFCompressor-mac.zip">PDFCompressor-mac.zip</a> and unzip it.</li>
+          <li>Right-click <code>PDFCompressor.app</code> → <b>Open</b> → <b>Open</b>.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>From source</h3>
+        <p>Needs Python 3.10+ with Tk.</p>
+        <p style="margin-top:8px"><code>pip install -r requirements.txt</code><br><code>python app.py</code></p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    PDF Compressor is open source under the GNU AGPL-3.0, built with PyMuPDF and Pillow.
+    <a href="https://github.com/Yash2301/pdf-compressor/issues">Report an issue</a> ·
+    <a href="https://github.com/Yash2301/pdf-compressor">Contribute on GitHub</a>
+  </footer>
+</div>
+<script>
+  // Point the main button at the right file for the visitor's OS.
+  (function () {
+    var base = "https://github.com/Yash2301/pdf-compressor/releases/latest/download/";
+    var ua = navigator.userAgent, main = document.getElementById("dl-main");
+    if (/Windows/i.test(ua)) {
+      main.href = base + "PDFCompressor-windows.exe";
+      main.textContent = "Download for Windows";
+    } else if (/Macintosh|Mac OS X/i.test(ua) && !/iPhone|iPad/i.test(ua)) {
+      main.href = base + "PDFCompressor-mac.zip";
+      main.textContent = "Download for macOS";
+    }
+  })();
+</script>
+</body>
+</html>
