@@ -12,8 +12,8 @@ Runs on Windows and macOS. Everything happens on your computer: no uploads, no a
 
 ## Features
 
-- **Lossless preset**: pixel-identical output. Losslessly re-optimizes JPEGs (mozjpeg Huffman/progressive, verified to decode to the same pixels), stores other images with colour-palette reduction, PNG predictors and maximum deflate, subsets embedded fonts, drops page thumbnails and packs objects into compressed object streams.
-- **Visually lossless preset**: picks the lowest JPEG quality per image that keeps SSIM ≥ 0.985 against the source, with full-resolution (4:4:4) colour, capped at 300 dpi.
+- **Lossless preset** (default): pixel-identical output. Losslessly re-optimizes JPEGs (mozjpeg Huffman/progressive, verified to decode to the same pixels), stores other images with colour-palette reduction, PNG predictors and maximum deflate, subsets embedded fonts, drops page thumbnails and packs objects into compressed object streams.
+- **Visually lossless preset**: picks the lowest JPEG quality per image that keeps SSIM ≥ 0.985 against the source, with full-resolution (4:4:4) colour. Image resolution is never reduced.
 - **Smart mode** (default): downsamples and JPEG-recompresses page images to a target DPI, then runs the lossless pass. Keeps OCR text, links and bookmarks.
 - **Max mode**: re-renders each page as one JPEG. Smallest file, but text is no longer selectable.
 - Presets: Lossless · Visually lossless (auto) · Low 200 dpi / q80 · Medium 150 dpi / q65 · High 110 dpi / q50 · Extreme 80 dpi / q40

@@ -6,7 +6,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
-from compressor import PRESETS, compress_pdf, human_size
+from compressor import LOSSLESS, PRESETS, compress_pdf, human_size
 
 APP_NAME = "PDF Compressor"
 
@@ -15,8 +15,8 @@ class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(APP_NAME)
-        self.geometry("720x520")
-        self.minsize(600, 420)
+        self.geometry("800x540")
+        self.minsize(760, 440)
         self.files = []
         self.events = queue.Queue()
         self.worker = None
@@ -47,9 +47,9 @@ class App(tk.Tk):
         opts.pack(fill="x", **pad)
 
         ttk.Label(opts, text="Compression:").grid(row=0, column=0, sticky="w", **pad)
-        self.preset = tk.StringVar(value="Medium (recommended)")
+        self.preset = tk.StringVar(value=LOSSLESS)
         ttk.Combobox(opts, textvariable=self.preset, values=list(PRESETS),
-                     state="readonly", width=24).grid(row=0, column=1, sticky="w", **pad)
+                     state="readonly", width=28).grid(row=0, column=1, sticky="w", **pad)
 
         ttk.Label(opts, text="Mode:").grid(row=0, column=2, sticky="w", **pad)
         self.mode = tk.StringVar(value="smart")
@@ -61,6 +61,8 @@ class App(tk.Tk):
         self.gray = tk.BooleanVar(value=False)
         ttk.Checkbutton(opts, text="Convert to grayscale (smaller)",
                         variable=self.gray).grid(row=1, column=1, columnspan=2, sticky="w", **pad)
+        ttk.Label(opts, text="Lossless keeps every image exactly as-is; other presets trade quality for size.",
+                  foreground="gray").grid(row=4, column=1, columnspan=4, sticky="w", padx=8, pady=(0, 4))
 
         ttk.Label(opts, text="Save to:").grid(row=2, column=0, sticky="w", **pad)
         self.outdir = tk.StringVar(value="")

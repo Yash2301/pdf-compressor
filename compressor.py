@@ -35,9 +35,9 @@ AUTO = None  # jpeg quality placeholder: search for the best quality per image
 PRESETS = {
     # name: (target dpi, jpeg quality)
     "Lossless (identical quality)": (None, None),
-    "Visually lossless (auto)": (300, AUTO),
+    "Visually lossless (auto)": (None, AUTO),  # keep full resolution
     "Low (best quality)": (200, 80),
-    "Medium (recommended)": (150, 65),
+    "Medium": (150, 65),
     "High (smallest file)": (110, 50),
     "Extreme": (80, 40),
 }
@@ -365,7 +365,7 @@ def _compress_smart(src, dst, dpi, quality, grayscale, progress=None):
             if bbox.width <= 0 or bbox.height <= 0:
                 continue
             cur_dpi = img.width / (bbox.width / 72)
-            if cur_dpi > dpi * 1.1:
+            if dpi and cur_dpi > dpi * 1.1:
                 scale = dpi / cur_dpi
                 size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
                 img = img.resize(size, Image.LANCZOS)
@@ -400,7 +400,7 @@ def _compress_rasterize(src, dst, dpi, quality, grayscale, progress=None):
     doc.close()
 
 
-def compress_pdf(src, dst, preset="Medium (recommended)", mode="smart",
+def compress_pdf(src, dst, preset=LOSSLESS, mode="smart",
                  grayscale=False, progress=None):
     """Compress src into dst. Returns (original_size, new_size).
 
