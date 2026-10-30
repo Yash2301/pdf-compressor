@@ -9,8 +9,9 @@ Three modes:
               fonts, drops page thumbnails and private editor data
               (/PieceInfo) and packs objects into object streams.
   smart     - recompress/downsample embedded images in place. Keeps any text
-              layer (OCR), links and bookmarks. Good default. Finishes with
-              the lossless pass.
+              layer (OCR), links and bookmarks. Runs the lossless pass
+              first and only re-encodes an image when that beats its
+              losslessly optimized size.
   rasterize - re-render every page as a single JPEG. Strongest compression,
               but drops selectable text. Best for pure image scans.
 
@@ -437,6 +438,7 @@ def _compress_lossless(src, dst, progress=None):
 
 def _compress_smart(src, dst, dpi, quality, grayscale, progress=None):
     doc = _open(src)
+    _lossless_pass(doc)
     done = set()
     total = doc.page_count
     for i, page in enumerate(doc):
@@ -463,11 +465,12 @@ def _compress_smart(src, dst, dpi, quality, grayscale, progress=None):
             if grayscale and img.mode != "L":
                 img = img.convert("L")
             data = _encode(img, quality)
-            if len(data) < len(meta["image"]):
+            # The lossless pass already ran, so this is the size the image
+            # would have untouched: re-encode only if it beats that.
+            if len(data) < len(doc.xref_stream_raw(xref)):
                 page.replace_image(xref, stream=data)
         if progress:
             progress(i + 1, total)
-    _lossless_pass(doc)
     _save(doc, dst)
     doc.close()
 
