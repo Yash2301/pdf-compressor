@@ -12,8 +12,13 @@ Runs on Windows and macOS. Everything happens on your computer: no uploads, no a
 
 ## Features
 
-- **Lossless preset**: pixel-identical output. Losslessly re-optimizes JPEGs (mozjpeg Huffman/progressive, verified to decode to the same pixels), stores other images with colour-palette reduction, PNG predictors and maximum deflate, subsets embedded fonts, drops page thumbnails and packs objects into compressed object streams.
-- **Visually lossless preset**: picks the lowest JPEG quality per image that keeps SSIM ≥ 0.985 against the source, with full-resolution (4:4:4) colour, capped at 300 dpi.
+- **Lossless preset** (default): pixel-identical output. Every re-encoded image is decoded again and compared with the original; any difference and the change is undone.
+  - JPEGs: mozjpeg lossless re-optimization (optimal Huffman tables, progressive).
+  - Black-and-white scans: CCITT Group 4 when it beats Flate.
+  - Other images: exact colour-palette / grayscale reduction, PNG predictors, libdeflate level 12.
+  - Every other stream (page contents, fonts, ICC profiles) re-deflated with libdeflate.
+  - Embedded fonts subset; page thumbnails and private editor data (`/PieceInfo` from Illustrator/Photoshop, never shown by viewers) removed; objects packed into compressed object streams.
+- **Visually lossless preset**: picks the lowest JPEG quality per image that keeps SSIM ≥ 0.985 against the source, with full-resolution (4:4:4) colour. Image resolution is never reduced.
 - **Smart mode** (default): downsamples and JPEG-recompresses page images to a target DPI, then runs the lossless pass. Keeps OCR text, links and bookmarks.
 - **Max mode**: re-renders each page as one JPEG. Smallest file, but text is no longer selectable.
 - Presets: Lossless · Visually lossless (auto) · Low 200 dpi / q80 · Medium 150 dpi / q65 · High 110 dpi / q50 · Extreme 80 dpi / q40
@@ -50,4 +55,4 @@ Issues and pull requests are welcome.
 
 ## License
 
-[GNU AGPL-3.0](LICENSE). Built on [PyMuPDF](https://github.com/pymupdf/PyMuPDF) (AGPL-3.0), [Pillow](https://python-pillow.org/), [NumPy](https://numpy.org/) and [mozjpeg-lossless-optimization](https://github.com/wanadev/mozjpeg-lossless-optimization).
+[GNU AGPL-3.0](LICENSE). Built on [PyMuPDF](https://github.com/pymupdf/PyMuPDF) (AGPL-3.0), [Pillow](https://python-pillow.org/), [NumPy](https://numpy.org/), [mozjpeg-lossless-optimization](https://github.com/wanadev/mozjpeg-lossless-optimization) and [deflate](https://github.com/dcwatson/deflate) (libdeflate).
