@@ -2,9 +2,12 @@
 
 Three modes:
   lossless  - pixel-identical output. Losslessly re-optimizes every image
-              (mozjpeg Huffman/progressive for JPEGs, colour reduction plus
-              PNG predictors and max deflate for the rest), subsets fonts,
-              drops page thumbnails and packs objects into object streams.
+              (mozjpeg Huffman/progressive for JPEGs, CCITT G4 for 1-bit
+              images, colour reduction plus PNG predictors for the rest) and
+              decodes each changed image again to prove it is unchanged.
+              Recompresses every Flate stream with libdeflate, subsets
+              fonts, drops page thumbnails and private editor data
+              (/PieceInfo) and packs objects into object streams.
   smart     - recompress/downsample embedded images in place. Keeps any text
               layer (OCR), links and bookmarks. Good default. Finishes with
               the lossless pass.
@@ -29,6 +32,10 @@ try:  # optional: lossless JPEG re-optimization
     import mozjpeg_lossless_optimization as mozjpeg
 except ImportError:  # pragma: no cover
     mozjpeg = None
+try:  # optional: stronger deflate (libdeflate level 12)
+    import deflate as libdeflate
+except ImportError:  # pragma: no cover
+    libdeflate = None
 
 AUTO = None  # jpeg quality placeholder: search for the best quality per image
 
@@ -200,6 +207,56 @@ def _parms(width, colors, bpc):
     return f"<</Predictor 15/Colors {colors}/BitsPerComponent {bpc}/Columns {width}>>"
 
 
+def _deflate(data):
+    """Smallest standard zlib stream we can make for data."""
+    best = zlib.compress(data, 9)
+    if libdeflate is not None:
+        out = libdeflate.zlib_compress(data, 12)
+        if len(out) < len(best):
+            best = out
+    return best
+
+
+def _ccitt_g4(img):
+    """1-bit image -> raw CCITT Group 4 data (single strip, via libtiff)."""
+    buf = io.BytesIO()
+    img.save(buf, "TIFF", compression="group4", tiffinfo={278: img.height})
+    tif = Image.open(io.BytesIO(buf.getvalue()))
+    offsets, counts = tif.tag_v2[273], tif.tag_v2[279]
+    if len(offsets) != 1:
+        return None
+    return buf.getvalue()[offsets[0]:offsets[0] + counts[0]]
+
+
+_IMAGE_KEYS = ("Filter", "DecodeParms", "ColorSpace", "BitsPerComponent")
+
+
+def _pixels(doc, xref):
+    pix = fitz.Pixmap(doc, xref)
+    if pix.colorspace and pix.colorspace.n == 1 and not pix.alpha:
+        pix = fitz.Pixmap(fitz.csRGB, pix)  # compare gray and RGB on equal terms
+    return pix.width, pix.height, pix.n, pix.samples
+
+
+def _replace_verified(doc, xref, data, keys):
+    """Swap in a new encoding, keeping it only if it decodes identically."""
+    old_raw = doc.xref_stream_raw(xref)
+    old_keys = {k: doc.xref_get_key(xref, k) for k in _IMAGE_KEYS}
+    before = _pixels(doc, xref)
+    doc.update_stream(xref, data, compress=0)
+    for k, v in keys.items():
+        doc.xref_set_key(xref, k, v)
+    try:
+        same = _pixels(doc, xref) == before
+    except Exception:
+        same = False
+    if not same:
+        doc.update_stream(xref, old_raw, compress=0)
+        for k, (kind, val) in old_keys.items():
+            doc.xref_set_key(xref, k, "null" if kind == "null" else val)
+    return same
+
+
 def _optimize_flate_image(doc, xref, protected):
     filt = doc.xref_get_key(xref, "Filter")[1]
     if any(f in filt for f in _LOSSY_FILTERS):
@@ -221,13 +278,18 @@ def _optimize_flate_image(doc, xref, protected):
     raw = raw[:h * ((w * n * bpc + 7) // 8)]
     old_len = len(doc.xref_stream_raw(xref))
 
-    # Plain zlib (no predictor) is the always-valid baseline.
-    best = (zlib.compress(raw, 9), n, bpc, "null", cs)
+    # Rank Flate layouts by their zlib size, then deflate only the winner
+    # with libdeflate. Entries: (zlib size, payload, bpc, parms, space).
+    # Plain samples (no predictor) are the always-valid baseline.
+    flate = [(len(zlib.compress(raw, 9)), raw, bpc, "null", cs)]
+    g4 = None
 
     mode = {(1, 1): "1", (1, 8): "L", (3, 8): "RGB"}.get((n, bpc))
     if mode:
         img = Image.frombytes(mode, (w, h), raw)
         cands = [(img, n, cs)]
+        if mode == "1":
+            g4 = _ccitt_g4(img)
         # Changing the sample layout is only exact when nothing else (Decode,
         # colour-key Mask, use as an SMask) depends on it; RGB->gray also
         # needs a plain device space so no ICC profile is bypassed.
@@ -238,23 +300,28 @@ def _optimize_flate_image(doc, xref, protected):
             gray = _to_gray(img) if n == 3 and device else None
             if gray is not None:
                 img, base, cands = gray, "/DeviceGray", [(gray, 1, "/DeviceGray")]
-            pal = _to_palette(img, base)
+            # Gray always has <= 256 levels; a palette only helps if it
+            # lowers the bit depth.
+            pal = _to_palette(img, base) if img.mode == "RGB" or len(img.getcolors(256)) <= 16 else None
             if pal:
                 cands.append((pal[0], 1, pal[1]))
         for im, colors, space in cands:
             data, out_bpc, _ = _png_stream(im)
-            if len(data) < len(best[0]):
-                best = (data, colors, out_bpc, _parms(w, colors, out_bpc), space)
+            flate.append((len(data), zlib.decompress(data), out_bpc,
+                          _parms(w, colors, out_bpc), space))
 
-    data, _, out_bpc, parms, space = best
+    _, payload, out_bpc, parms, space = min(flate, key=lambda c: c[0])
+    data, filt = _deflate(payload), "/FlateDecode"
+    if g4 and len(g4) < len(data):
+        data, filt, out_bpc = g4, "/CCITTFaxDecode", 1
+        parms = f"<</K -1/Columns {w}/Rows {h}/BlackIs1 true>>"
+        space = cs
     if len(data) >= old_len:
         return
-    doc.update_stream(xref, data, compress=0)
-    doc.xref_set_key(xref, "Filter", "/FlateDecode")
-    doc.xref_set_key(xref, "DecodeParms", parms)
-    doc.xref_set_key(xref, "BitsPerComponent", str(out_bpc))
+    keys = {"Filter": filt, "DecodeParms": parms, "BitsPerComponent": str(out_bpc)}
     if not is_mask:
-        doc.xref_set_key(xref, "ColorSpace", space)
+        keys["ColorSpace"] = space
+    _replace_verified(doc, xref, data, keys)
 
 
 def _optimize_jpeg_image(doc, xref):
@@ -262,19 +329,9 @@ def _optimize_jpeg_image(doc, xref):
         return
     raw = doc.xref_stream_raw(xref)
     new = _optimize_jpeg(raw)
-    if len(new) >= len(raw):
-        return
-    # Guard against marker loss (e.g. Adobe APP14 colour transform): the
-    # optimized file must decode to exactly the same pixels.
-    try:
-        a, b = Image.open(io.BytesIO(raw)), Image.open(io.BytesIO(new))
-        if a.mode != b.mode or a.tobytes() != b.tobytes():
-            return
-    except Exception:
-        return
-    doc.update_stream(xref, new, compress=0)
-    doc.xref_set_key(xref, "Filter", "/DCTDecode")
-    doc.xref_set_key(xref, "DecodeParms", "null")
+    if len(new) < len(raw):
+        # Verification also catches marker loss (e.g. Adobe APP14 transform).
+        _replace_verified(doc, xref, new, {"Filter": "/DCTDecode", "DecodeParms": "null"})
 
 
 def _image_xrefs(doc):
@@ -304,18 +361,52 @@ def _lossless_pass(doc, progress=None):
             pass  # unusual image: keep it exactly as it was
         if progress:
             progress(i + 1, len(xrefs))
-    for page in doc:
-        if doc.xref_get_key(page.xref, "Thumb")[0] != "null":
-            doc.xref_set_key(page.xref, "Thumb", "null")
+    for x in range(1, doc.xref_length()):
+        # Page thumbnails and private app data (Illustrator/Photoshop
+        # /PieceInfo) are never drawn by viewers.
+        for key in ("Thumb", "PieceInfo"):
+            try:
+                if doc.xref_get_key(x, key)[0] != "null":
+                    doc.xref_set_key(x, key, "null")
+            except Exception:
+                pass
     try:
         doc.subset_fonts()
     except Exception:
         pass
 
 
+def _recompress_streams(doc):
+    """Re-deflate every non-image Flate stream harder (fonts, page contents,
+    ICC profiles...); the decoded bytes are unchanged. Images were already
+    handled by the lossless pass."""
+    for x in range(1, doc.xref_length()):
+        try:
+            if (not doc.xref_is_stream(x)
+                    or doc.xref_get_key(x, "Subtype")[1] == "/Image"
+                    or doc.xref_get_key(x, "Filter")[1] != "/FlateDecode"):
+                continue
+            raw = doc.xref_stream_raw(x)
+            data = _deflate(zlib.decompress(raw))
+            if len(data) < len(raw):
+                parms = doc.xref_get_key(x, "DecodeParms")
+                doc.update_stream(x, data, compress=0)
+                doc.xref_set_key(x, "Filter", "/FlateDecode")
+                if parms[0] != "null":
+                    doc.xref_set_key(x, "DecodeParms", parms[1])
+        except Exception:
+            continue
+
+
 def _save(doc, dst):
-    doc.save(dst, garbage=4, deflate=True, deflate_images=True, deflate_fonts=True,
-             clean=True, use_objstms=1, compression_effort=100)
+    # Clean and deflate with MuPDF first, then squeeze every stream harder
+    # and write without "clean" so the stronger streams are kept.
+    data = doc.tobytes(garbage=4, deflate=True, deflate_images=True,
+                       deflate_fonts=True, clean=True)
+    out = fitz.open("pdf", data)
+    _recompress_streams(out)
+    out.save(dst, garbage=4, deflate=True, use_objstms=1, compression_effort=100)
+    out.close()
 
 
 # ---------- modes ----------
