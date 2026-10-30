@@ -12,9 +12,11 @@ Runs on Windows and macOS. Everything happens on your computer: no uploads, no a
 
 ## Features
 
-- **Smart mode** (default): downsamples and JPEG-recompresses page images to a target DPI. Keeps OCR text, links and bookmarks.
+- **Lossless preset**: pixel-identical output. Losslessly re-optimizes JPEGs (mozjpeg Huffman/progressive, verified to decode to the same pixels), stores other images with colour-palette reduction, PNG predictors and maximum deflate, subsets embedded fonts, drops page thumbnails and packs objects into compressed object streams.
+- **Visually lossless preset**: picks the lowest JPEG quality per image that keeps SSIM ≥ 0.985 against the source, with full-resolution (4:4:4) colour, capped at 300 dpi.
+- **Smart mode** (default): downsamples and JPEG-recompresses page images to a target DPI, then runs the lossless pass. Keeps OCR text, links and bookmarks.
 - **Max mode**: re-renders each page as one JPEG. Smallest file, but text is no longer selectable.
-- Presets: Low 200 dpi / q80 · Medium 150 dpi / q65 · High 110 dpi / q50 · Extreme 80 dpi / q40
+- Presets: Lossless · Visually lossless (auto) · Low 200 dpi / q80 · Medium 150 dpi / q65 · High 110 dpi / q50 · Extreme 80 dpi / q40
 - Optional grayscale conversion.
 - Batch: add many files or a whole folder.
 - Never writes a file bigger than the original.
@@ -48,4 +50,4 @@ Issues and pull requests are welcome.
 
 ## License
 
-[GNU AGPL-3.0](LICENSE). Built on [PyMuPDF](https://github.com/pymupdf/PyMuPDF) (AGPL-3.0) and [Pillow](https://python-pillow.org/).
+[GNU AGPL-3.0](LICENSE). Built on [PyMuPDF](https://github.com/pymupdf/PyMuPDF) (AGPL-3.0), [Pillow](https://python-pillow.org/), [NumPy](https://numpy.org/) and [mozjpeg-lossless-optimization](https://github.com/wanadev/mozjpeg-lossless-optimization).
